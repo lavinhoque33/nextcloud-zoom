@@ -45,7 +45,6 @@ import com.owncloud.android.ui.StatusDrawable
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 import com.nextcloud.utils.decodeSampledBitmapFromFile as decodeSampledBitmap
 
@@ -92,17 +91,54 @@ object BitmapUtils {
     fun decodeSampledBitmapFromFile(srcPath: String?, reqWidth: Int, reqHeight: Int): Bitmap? =
         decodeSampledBitmap(srcPath, reqWidth, reqHeight)
 
-    fun retrieveBitmapFromFile(storagePath: String, minWidth: Int, minHeight: Int): Bitmap? {
-        val (originalWidth, originalHeight) = getImageResolution(storagePath)
-        if (originalWidth <= 0 || originalHeight <= 0) {
+    /**
+     * Pixel budget for one image in the full-screen viewer: 16 MP, about 64 MB as ARGB_8888, below
+     * Android's 100 MB limit for drawing a single bitmap. Tall comic strips and ordinary photos stay at
+     * full resolution; only larger images are sampled down.
+     */
+    const val VIEWER_MAX_PIXELS = 16_000_000L
+
+    /**
+     * Decodes [storagePath] for the full-screen viewer at the highest resolution within [maxPixels], so
+     * zooming in shows real detail. Decoding to screen size instead would shrink a 540x21242 strip to
+     * 67 pixels wide.
+     */
+    fun decodeFileForViewer(storagePath: String, maxPixels: Long = VIEWER_MAX_PIXELS): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(storagePath, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
             return null
         }
 
-        val scaleFactor = min(minWidth.toFloat() / originalWidth, minHeight.toFloat() / originalHeight)
-        val scaledWidth = (originalWidth * scaleFactor).toInt()
-        val scaledHeight = (originalHeight * scaleFactor).toInt()
-        return decodeSampledBitmap(storagePath, scaledWidth, scaledHeight)
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = viewerSampleSize(bounds.outWidth, bounds.outHeight, maxPixels)
+        }
+        return BitmapFactory.decodeFile(storagePath, options)
             .rotateBitmapViaExif(readExifOrientation(storagePath))
+    }
+
+    /** Same as [decodeFileForViewer] for an encoded image in memory, such as a downloaded server preview. */
+    fun decodeBytesForViewer(data: ByteArray, maxPixels: Long = VIEWER_MAX_PIXELS): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+            return null
+        }
+
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = viewerSampleSize(bounds.outWidth, bounds.outHeight, maxPixels)
+        }
+        return BitmapFactory.decodeByteArray(data, 0, data.size, options)
+    }
+
+    /** Smallest power-of-two sample size that brings [width] x [height] within [maxPixels]. */
+    @JvmStatic
+    fun viewerSampleSize(width: Int, height: Int, maxPixels: Long): Int {
+        var sampleSize = 1
+        while ((width.toLong() / sampleSize) * (height.toLong() / sampleSize) > maxPixels) {
+            sampleSize *= 2
+        }
+        return sampleSize
     }
 
     @JvmStatic

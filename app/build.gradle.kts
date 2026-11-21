@@ -179,6 +179,14 @@ android {
                 versionCode = 1
                 versionName = "1"
             }
+
+            // Personal side-by-side build with the full-resolution image viewer. Own package, account type
+            // and provider authorities (src/zoom/res/values/setup.xml) so it installs next to the store app.
+            register("zoom") {
+                applicationId = "com.nextcloud.client.zoom"
+                dimension = "default"
+                versionNameSuffix = "-zoom"
+            }
         }
     }
 
@@ -238,6 +246,11 @@ android {
         // Adds exported schema location as test app assets.
         getByName("androidTest") {
             assets.srcDirs(files("$projectDir/schemas"))
+        }
+        // The zoom flavor is the F-Droid ("generic") build otherwise: no Google services.
+        getByName("zoom") {
+            java.srcDir("src/generic/java")
+            kotlin.srcDir("src/generic/java")
         }
     }
 

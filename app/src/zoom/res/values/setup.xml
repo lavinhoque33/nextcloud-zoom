@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Nextcloud - Android Client
+  ~
+  ~ SPDX-License-Identifier: AGPL-3.0-or-later OR GPL-2.0-only
+  ~
+  ~ Side-by-side "zoom" build: every identifier that must be unique per installed app differs from the
+  ~ store app (com.nextcloud.client), so both can be installed and logged in at the same time.
+-->
+<resources>
+    <string name="app_name">Nextcloud Zoom</string>
+    <string name="account_type">nextcloud.zoom</string>
+    <string name="authority">org.nextcloud.zoom.provider</string>
+    <string name="users_and_groups_search_authority">org.nextcloud.zoom.android.providers.UsersAndGroupsSearchProvider</string>
+    <string name="users_and_groups_share_with">org.nextcloud.zoom.android.providers.UsersAndGroupsSearchProvider.action.SHARE_WITH</string>
+    <string name="document_provider_authority">org.nextcloud.zoom.documents</string>
+    <string name="file_provider_authority">org.nextcloud.zoom.files</string>
+    <string name="image_cache_provider_authority">org.nextcloud.zoom.android.providers.imageCache</string>
+    <string name="default_display_name_for_root_folder">Nextcloud Zoom</string>
+</resources>
