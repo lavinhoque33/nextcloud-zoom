@@ -267,8 +267,7 @@ class PreviewMediaFragment :
     }
 
     private fun adjustResizedImage(thumbnail: Bitmap?, width: Int, height: Int) {
-        // Show the cached screen-sized preview (or the thumbnail) at once, then always load the
-        // full-detail image: the cached preview is too small to zoom into.
+        // the cached preview is screen-sized and too blurry to zoom into, so full detail is always loaded
         val resizedImage = getResizedBitmap(file, width, height)
         binding.image.setImageBitmap(resizedImage ?: thumbnail)
 
@@ -468,8 +467,6 @@ class PreviewMediaFragment :
             val storagePath = ocFile.storagePath
             try {
                 val maxDownScale = 3 // could be a parameter passed to doInBackground(...)
-                // Full resolution within a pixel budget, so zooming shows real detail; each
-                // out-of-memory retry quarters the budget (halves both sides).
                 var maxPixels = BitmapUtils.VIEWER_MAX_PIXELS
                 var i = 0
                 while (i < maxDownScale && bitmapResult == null && drawableResult == null) {
@@ -513,7 +510,7 @@ class PreviewMediaFragment :
                             mErrorMessageId = R.string.common_error_out_memory
                             if (i < maxDownScale - 1) {
                                 Log_OC.w(TAG, "Out of memory rendering file $storagePath ; scaling down")
-                                maxPixels /= 4
+                                maxPixels /= OUT_OF_MEMORY_PIXEL_DIVISOR
                             } else {
                                 Log_OC.w(TAG, "Out of memory rendering file $storagePath ; failing")
                             }
@@ -771,6 +768,7 @@ class PreviewMediaFragment :
         private const val MIME_TYPE_PNG = "image/png"
         private const val MIME_TYPE_GIF = "image/gif"
         private const val MIME_TYPE_SVG = "image/svg+xml"
+        private const val OUT_OF_MEMORY_PIXEL_DIVISOR = 4
 
         private val TAG: String = PreviewMediaFragment::class.java.simpleName
 

@@ -92,43 +92,30 @@ object BitmapUtils {
         decodeSampledBitmap(srcPath, reqWidth, reqHeight)
 
     /**
-     * Pixel budget for one image in the full-screen viewer: 16 MP, about 64 MB as ARGB_8888, below
-     * Android's 100 MB limit for drawing a single bitmap. Tall comic strips and ordinary photos stay at
-     * full resolution; only larger images are sampled down.
+     * About 64 MB as ARGB_8888: below Android's 100 MB limit for drawing a single bitmap, and large enough
+     * to keep tall strips and typical photos at full resolution.
      */
     const val VIEWER_MAX_PIXELS = 16_000_000L
 
-    /**
-     * Decodes [storagePath] for the full-screen viewer at the highest resolution within [maxPixels], so
-     * zooming in shows real detail. Decoding to screen size instead would shrink a 540x21242 strip to
-     * 67 pixels wide.
-     */
-    fun decodeFileForViewer(storagePath: String, maxPixels: Long = VIEWER_MAX_PIXELS): Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(storagePath, bounds)
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
-            return null
-        }
-
-        val options = BitmapFactory.Options().apply {
-            inSampleSize = viewerSampleSize(bounds.outWidth, bounds.outHeight, maxPixels)
-        }
-        return BitmapFactory.decodeFile(storagePath, options)
+    fun decodeFileForViewer(storagePath: String, maxPixels: Long = VIEWER_MAX_PIXELS): Bitmap? =
+        decodeWithinPixels(maxPixels) { BitmapFactory.decodeFile(storagePath, it) }
             .rotateBitmapViaExif(readExifOrientation(storagePath))
-    }
 
-    /** Same as [decodeFileForViewer] for an encoded image in memory, such as a downloaded server preview. */
-    fun decodeBytesForViewer(data: ByteArray, maxPixels: Long = VIEWER_MAX_PIXELS): Bitmap? {
+    fun decodeBytesForViewer(data: ByteArray, maxPixels: Long = VIEWER_MAX_PIXELS): Bitmap? =
+        decodeWithinPixels(maxPixels) { BitmapFactory.decodeByteArray(data, 0, data.size, it) }
+
+    private inline fun decodeWithinPixels(maxPixels: Long, decode: (BitmapFactory.Options) -> Bitmap?): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+        decode(bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
             return null
         }
 
-        val options = BitmapFactory.Options().apply {
-            inSampleSize = viewerSampleSize(bounds.outWidth, bounds.outHeight, maxPixels)
-        }
-        return BitmapFactory.decodeByteArray(data, 0, data.size, options)
+        return decode(
+            BitmapFactory.Options().apply {
+                inSampleSize = viewerSampleSize(bounds.outWidth, bounds.outHeight, maxPixels)
+            }
+        )
     }
 
     /** Smallest power-of-two sample size that brings [width] x [height] within [maxPixels]. */

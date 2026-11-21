@@ -36,11 +36,11 @@ object ResizedImageGenerator {
     @Suppress("MagicNumber")
     private val VIDEO_PREVIEW_SIZES = listOf(1024, 512, 256, 128, 64)
 
+    private const val FULL_DETAIL_SCREEN_FACTOR = 2
+
     /**
-     * Full-detail image for the full-screen viewer, not cached: the local file when downloaded, else a
-     * server preview twice the screen's short side (full width for tall strips). The screen-sized
-     * preview from [getOrCreate] has too few pixels to zoom into. Returns null for videos or on failure,
-     * including running out of memory, so the caller can fall back to [getOrCreate].
+     * Image for the full-screen viewer with enough pixels to zoom into; not cached. Returns null for videos
+     * and when out of memory, so the caller can fall back to [getOrCreate].
      */
     fun getFullDetail(file: OCFile, client: OwnCloudClient): Bitmap? {
         if (MimeTypeUtil.isVideo(file)) {
@@ -52,11 +52,12 @@ object ResizedImageGenerator {
                 BitmapUtils.decodeFileForViewer(file.storagePath)
             } else {
                 val screenSize = ScreenMetrics.size()
-                val uri = client.getFullDetailPreviewEndpoint(file.localId, 2 * min(screenSize.x, screenSize.y))
+                val minSide = FULL_DETAIL_SCREEN_FACTOR * min(screenSize.x, screenSize.y)
+                val uri = client.getFullDetailPreviewEndpoint(file.localId, minSide)
                 downloadPreview(file, client, uri) { BitmapUtils.decodeBytesForViewer(it.readBytes()) }
             } ?: return null
 
-            if (file.isPNG()) BitmapUtils.centerCropOnPngBackground(image, image.width, image.height) else image
+            withPngBackground(file, image)
         } catch (e: OutOfMemoryError) {
             Log_OC.e(TAG, "out of memory loading full detail: ${file.remotePath}", e)
             null
@@ -120,13 +121,15 @@ object ResizedImageGenerator {
             downloadPreview(file, client, client.getPreviewEndpoint(file.localId, screenSize.x, screenSize.y))
         } ?: return null
 
-        val image = if (file.isPNG()) {
-            BitmapUtils.centerCropOnPngBackground(preview, preview.width, preview.height)
-        } else {
-            preview
-        }
+        val image = withPngBackground(file, preview)
         ThumbnailsCacheManager.addBitmapToCache(cacheKey, image)
         return image
+    }
+
+    private fun withPngBackground(file: OCFile, image: Bitmap): Bitmap = if (file.isPNG()) {
+        BitmapUtils.centerCropOnPngBackground(image, image.width, image.height)
+    } else {
+        image
     }
 
     private fun downloadVideoPreview(file: OCFile, client: OwnCloudClient): Bitmap? =

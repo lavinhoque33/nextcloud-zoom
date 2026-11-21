@@ -30,8 +30,8 @@ fun OwnCloudClient.getPreviewEndpoint(localFileId: Long, x: Int, y: Int): String
     "&a=1&mode=cover&forceIcon=0"
 
 /**
- * Preview whose shorter side is at least [minSide] pixels, limited only by the original image and the
- * server's preview size limits. A very tall strip therefore comes back at its full width.
+ * With mode=cover the shorter side is at least [minSide], capped by the original size and the server's
+ * preview limits, so tall images keep their full width.
  */
 fun OwnCloudClient.getFullDetailPreviewEndpoint(localFileId: Long, minSide: Int): String = baseUri
     .toString() +
