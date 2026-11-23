@@ -1,3 +1,7 @@
+## 35.1.0-zoom.7
+
+- Double-tapping a PDF restores the reading controls without losing your place.
+
 ## 35.1.0-zoom.6
 
 - Tap once or scroll a PDF to hide its filename and Android system bars; double-tap to show them again.

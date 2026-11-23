@@ -56,6 +56,7 @@ class PreviewPdfFragmentScreenshotIT : AbstractIT() {
         private const val RENDER_TIMEOUT_SECONDS = 10L
         private const val CHROME_TIMEOUT_MS = 2_000L
         private const val CHROME_POLL_MS = 16L
+        private const val CHROME_SETTLE_MS = 750L
     }
 
     @get:Rule
@@ -89,8 +90,48 @@ class PreviewPdfFragmentScreenshotIT : AbstractIT() {
             assertReadingChrome(scenario, visible = false)
             reader.perform(doubleClick())
             assertReadingChrome(scenario, visible = true)
+            SystemClock.sleep(CHROME_SETTLE_MS)
+            assertReadingChrome(scenario, visible = true)
+            scenario.onActivity {
+                val pages = it.findViewById<RecyclerView>(R.id.pdf_recycler)
+                assertTrue("Double-tap scrolled away from the top", !pages.canScrollVertically(-1))
+            }
             onView(withId(R.id.bottom_navigation)).check(matches(withEffectiveVisibility(GONE)))
             reader.perform(click()).check(matches(isDisplayed()))
+            assertReadingChrome(scenario, visible = false)
+        }
+    }
+
+    @Test
+    fun doubleTapKeepsTheSamePartOfThePageOnScreen() {
+        val pdf = testPdf()
+        launchActivity<FileDisplayActivity>().use { scenario ->
+            awaitVisiblePages(scenario) { it.startPdfPreview(pdf) }
+            val reader = onView(withId(R.id.pdf_recycler))
+            reader.perform(click())
+            assertReadingChrome(scenario, visible = false)
+            var pageIndex = RecyclerView.NO_POSITION
+            var originalY = 0
+            val location = IntArray(2)
+            scenario.onActivity {
+                val pages = it.findViewById<RecyclerView>(R.id.pdf_recycler)
+                pages.scrollBy(0, pages.height / 8)
+                assertTrue("Fixture must be scrolled", pages.canScrollVertically(-1))
+                val page = requireNotNull(pages.findChildViewUnder(pages.width / 2f, pages.height / 2f))
+                pageIndex = pages.getChildAdapterPosition(page)
+                page.getLocationInWindow(location)
+                originalY = location[1]
+            }
+            reader.perform(doubleClick())
+            assertReadingChrome(scenario, visible = true)
+            SystemClock.sleep(CHROME_SETTLE_MS)
+            assertReadingChrome(scenario, visible = true)
+            scenario.onActivity {
+                val pages = it.findViewById<RecyclerView>(R.id.pdf_recycler)
+                requireNotNull(pages.layoutManager?.findViewByPosition(pageIndex)).getLocationInWindow(location)
+                assertEquals("Page moved when the toolbar opened", originalY, location[1])
+            }
+            reader.perform(click())
             assertReadingChrome(scenario, visible = false)
         }
     }

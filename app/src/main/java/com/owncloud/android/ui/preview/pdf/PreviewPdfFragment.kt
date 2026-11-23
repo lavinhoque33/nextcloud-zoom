@@ -17,6 +17,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.doOnAttach
+import androidx.core.view.doOnPreDraw
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
@@ -84,26 +85,55 @@ class PreviewPdfFragment : Fragment(R.layout.preview_pdf_fragment) {
         val lifecycle = viewLifecycleOwner.lifecycle
         val taps = GestureDetector(recycler.context, object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) hideReadingChrome()
+                if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) && restoreReadingChrome == null) {
+                    recycler.keepReadingPosition { hideReadingChrome() }
+                }
                 return true
             }
 
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                showReadingChrome()
+            override fun onDoubleTapEvent(e: MotionEvent): Boolean {
+                // Moving the toolbar on the second DOWN moves the list under the finger before UP.
+                if (e.actionMasked == MotionEvent.ACTION_UP && restoreReadingChrome != null) {
+                    recycler.keepReadingPosition { showReadingChrome() }
+                }
                 return true
             }
         })
         recycler.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
             override fun onInterceptTouchEvent(rv: RecyclerView, event: MotionEvent): Boolean {
-                taps.onTouchEvent(event)
-                return false
+                val doubleTap = taps.onTouchEvent(event)
+                return doubleTap && event.actionMasked == MotionEvent.ACTION_DOWN
+            }
+
+            override fun onTouchEvent(rv: RecyclerView, event: MotionEvent) {
+                // The second DOWN was already delivered by onInterceptTouchEvent.
+                if (event.actionMasked != MotionEvent.ACTION_DOWN) taps.onTouchEvent(event)
             }
         })
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-            override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
-                if (dy != 0) hideReadingChrome()
+            override fun onScrollStateChanged(rv: RecyclerView, newState: Int) {
+                if (newState == RecyclerView.SCROLL_STATE_DRAGGING) hideReadingChrome()
             }
         })
+    }
+
+    private inline fun RecyclerView.keepReadingPosition(changeChrome: () -> Unit) {
+        // At the document start, let the first page sit directly below the toolbar.
+        val page = if (canScrollVertically(-1)) findChildViewUnder(width / 2f, height / 2f) else null
+        if (page == null) {
+            changeChrome()
+            return
+        }
+        val position = getChildAdapterPosition(page)
+        val location = IntArray(2)
+        page.getLocationInWindow(location)
+        val pageTop = location[1]
+        changeChrome()
+        doOnPreDraw {
+            val anchor = layoutManager?.findViewByPosition(position) ?: return@doOnPreDraw
+            anchor.getLocationInWindow(location)
+            scrollBy(0, location[1] - pageTop)
+        }
     }
 
     private fun hideReadingChrome() {
