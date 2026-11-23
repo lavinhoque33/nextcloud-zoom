@@ -151,10 +151,10 @@ Run all checks with: `./gradlew check`
 
 ## Nextcloud Contribution Policy
 
-All contributions generated or assisted by this agent must fully comply with:
+Follow these policies, with the fork-specific DCO scope described under **Commits**:
 
 - **[AI Contribution Policy](https://github.com/nextcloud/.github/blob/master/AI_POLICY.md)** - the primary reference for AI-specific rules, covering disclosure, author accountability, communication, security, licensing, code quality, and autonomous agent behavior.
-- **[Contribution Guidelines](https://github.com/nextcloud/.github/blob/master/CONTRIBUTING.md)** - covering testing requirements, the Developer Certificate of Origin (DCO), license headers, conventional commits, and translations. These apply in full to all contributions regardless of how they were produced.
+- **[Contribution Guidelines](https://github.com/nextcloud/.github/blob/master/CONTRIBUTING.md)** - covering testing requirements, the Developer Certificate of Origin (DCO), license headers, conventional commits, and translations.
 
 ### What this agent must always do
 
@@ -179,7 +179,10 @@ All contributions generated or assisted by this agent must fully comply with:
 
 ### Commits
 
-- All commits must be signed off (`git commit -s`) per the Developer Certificate of Origin (DCO). All PRs target `master`. Backports use `/backport to stable-X.Y` in a PR comment.
+- Fork-only commits, pushes, and releases do not require DCO sign-off. Do not block them on a `Signed-off-by` trailer.
+- When the contributor asks to open a PR or merge changes into upstream `nextcloud/android`, check every commit being
+  submitted for human DCO sign-off. If one is missing, ask the contributor to sign off before upstream submission.
+- Upstream PRs target `master`. Backports use `/backport to stable-X.Y` in a PR comment.
 
 - Commit messages must follow the [Conventional Commits v1.0.0 specification](https://www.conventionalcommits.org/en/v1.0.0/#specification) — e.g. `feat(chat): add voice message playback`, `fix(call): handle MCU disconnect gracefully`.
 
