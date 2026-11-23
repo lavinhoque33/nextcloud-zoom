@@ -1,3 +1,7 @@
+## 35.1.0-zoom.4
+
+- PDF pages render in the background while scrolling. Tapping a page no longer opens a separate image preview.
+
 ## 35.1.0-zoom.3
 
 - Tap a PDF to read it in Nextcloud Zoom. Remote PDFs download and open automatically; local PDFs work offline.

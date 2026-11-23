@@ -8,71 +8,116 @@
 package com.owncloud.android.ui.preview.pdf
 
 import android.graphics.Bitmap
-import android.graphics.Color
-import android.graphics.pdf.PdfRenderer
+import android.graphics.drawable.BitmapDrawable
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import androidx.core.graphics.createBitmap
 import androidx.recyclerview.widget.RecyclerView
 import com.owncloud.android.databinding.PreviewPdfPageItemBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
-/**
- * @param renderer an **open** [PdfRenderer]
- */
-class PreviewPdfAdapter(
-    private val renderer: PdfRenderer,
-    private val screenWidth: Int,
-    private val onClickListener: (Bitmap) -> Unit
+internal class PreviewPdfAdapter(
+    private val renderer: PdfPageRenderer,
+    private val aspectRatios: DoubleArray,
+    private val renderScope: CoroutineScope
 ) : RecyclerView.Adapter<PreviewPdfAdapter.ViewHolder>() {
+    private var viewportWidth = 0
 
-    class ViewHolder(val binding: PreviewPdfPageItemBinding, val onClickListener: (Bitmap) -> Unit) :
-        RecyclerView.ViewHolder(binding.root) {
-        private var pageBitmap: Bitmap? = null
+    init {
+        stateRestorationPolicy = StateRestorationPolicy.PREVENT_WHEN_EMPTY
+    }
 
-        fun bind(bitmap: Bitmap) {
-            releaseBitmap()
-            pageBitmap = bitmap
-            binding.page.setImageBitmap(bitmap)
-            binding.root.setOnClickListener {
-                onClickListener(bitmap)
-            }
+    class ViewHolder(val binding: PreviewPdfPageItemBinding) : RecyclerView.ViewHolder(binding.root) {
+        var pageIndex = RecyclerView.NO_POSITION
+        var pageWidth = 0
+        var renderJob: Job? = null
+
+        fun showPage(bitmap: Bitmap) {
+            // Row geometry comes from the PDF metadata; swapping the drawable must not request a layout.
+            binding.page.setImageDrawable(object : BitmapDrawable(binding.page.resources, bitmap) {
+                override fun getIntrinsicWidth(): Int = -1
+
+                override fun getIntrinsicHeight(): Int = -1
+            })
         }
 
-        fun releaseBitmap() {
-            val bitmap = pageBitmap ?: return
-            binding.page.setImageDrawable(null)
-            binding.root.setOnClickListener(null)
-            bitmap.recycle()
-            pageBitmap = null
+        fun cancelRender() {
+            renderJob?.cancel()
+            renderJob = null
+        }
+
+        fun unbind() {
+            cancelRender()
+            pageIndex = RecyclerView.NO_POSITION
+            if (binding.page.drawable != null) binding.page.setImageDrawable(null)
         }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = PreviewPdfPageItemBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return ViewHolder(binding, onClickListener)
+        return ViewHolder(binding)
     }
 
-    override fun getItemCount() = renderer.pageCount
+    override fun getItemCount(): Int = if (viewportWidth > 0) aspectRatios.size else 0
+
+    fun updateViewportWidth(width: Int) {
+        if (width <= 0 || width == viewportWidth) return
+        val wasEmpty = viewportWidth == 0
+        viewportWidth = width
+        if (wasEmpty) {
+            notifyItemRangeInserted(0, itemCount)
+        } else {
+            notifyItemRangeChanged(0, itemCount)
+        }
+    }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val page = renderer.openPage(position)
-        val bitmap = renderPage(page)
-        holder.bind(bitmap)
+        if (holder.pageIndex != position || holder.pageWidth != viewportWidth) {
+            holder.unbind()
+            holder.pageIndex = position
+            holder.pageWidth = viewportWidth
+            val height = (viewportWidth * aspectRatios[position]).toInt().coerceAtLeast(1)
+            val params = holder.itemView.layoutParams
+            if (params.height != height) {
+                params.height = height
+                holder.itemView.layoutParams = params
+            }
+        }
+        if (holder.itemView.isAttachedToWindow) renderPage(holder)
+    }
+
+    override fun onViewAttachedToWindow(holder: ViewHolder) {
+        renderPage(holder)
+    }
+
+    override fun onViewDetachedFromWindow(holder: ViewHolder) {
+        holder.cancelRender()
     }
 
     override fun onViewRecycled(holder: ViewHolder) {
-        holder.releaseBitmap()
-        super.onViewRecycled(holder)
+        holder.unbind()
     }
 
-    private fun renderPage(page: PdfRenderer.Page) = page.use {
-        val bitmap = createBitmapForPage(it)
-        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-        bitmap
-    }
-
-    private fun createBitmapForPage(page: PdfRenderer.Page): Bitmap =
-        createBitmap(screenWidth, (screenWidth.toFloat() / page.width * page.height).toInt()).apply {
-            eraseColor(Color.WHITE)
+    private fun renderPage(holder: ViewHolder) {
+        val index = holder.pageIndex
+        val width = holder.pageWidth
+        if (index == RecyclerView.NO_POSITION || width != viewportWidth ||
+            holder.binding.page.drawable != null || holder.renderJob?.isActive == true
+        ) {
+            return
         }
+
+        val cached = renderer.cachedPage(index, width)
+        if (cached != null) {
+            holder.showPage(cached)
+            return
+        }
+
+        val height = holder.itemView.layoutParams.height
+        holder.renderJob = renderScope.launch {
+            val bitmap = renderer.renderPage(index, width, height)
+            if (width == viewportWidth) holder.showPage(bitmap)
+        }
+    }
 }

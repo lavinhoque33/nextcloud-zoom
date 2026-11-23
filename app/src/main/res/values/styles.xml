@@ -225,14 +225,6 @@
         <item name="bottomSheetDialogTheme">@style/ThemeOverlay.App.BottomSheetDialog</item>
     </style>
 
-    <style name="Theme.ownCloud.OverlayGrey" parent="Theme.ownCloud.OverlayBase">
-        <item name="android:navigationBarColor">@color/grey_400</item>
-        <item name="android:background">@color/grey_400</item>
-        <item name="android:windowBackground">@color/grey_400</item>
-        <item name="android:colorBackground">@color/grey_400</item>
-        <item name="android:windowLightNavigationBar">false</item>
-    </style>
-
     <style name="ToolbarStyle.Overflow" parent="@style/Widget.AppCompat.ActionButton.Overflow">
         <item name="android:tint">@android:color/white</item>
     </style>

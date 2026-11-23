@@ -19,7 +19,6 @@ import com.nextcloud.ui.tags.TagManagementViewModel
 import com.nextcloud.ui.trashbinFileActions.TrashbinFileActionsViewModel
 import com.owncloud.android.ui.activity.filedisplayactivity.FileDisplayActivityViewModel
 import com.owncloud.android.ui.fragment.filedetail.FileDetailFragmentViewModel
-import com.owncloud.android.ui.preview.pdf.PreviewPdfViewModel
 import com.owncloud.android.ui.unifiedsearch.UnifiedSearchViewModel
 import dagger.Binds
 import dagger.Module
@@ -41,11 +40,6 @@ abstract class ViewModelModule {
     @IntoMap
     @ViewModelKey(UnifiedSearchViewModel::class)
     abstract fun unifiedSearchViewModel(vm: UnifiedSearchViewModel): ViewModel
-
-    @Binds
-    @IntoMap
-    @ViewModelKey(PreviewPdfViewModel::class)
-    abstract fun previewPDFViewModel(vm: PreviewPdfViewModel): ViewModel
 
     @Binds
     @IntoMap

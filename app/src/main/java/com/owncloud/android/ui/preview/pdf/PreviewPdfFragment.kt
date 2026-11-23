@@ -7,18 +7,14 @@
  */
 package com.owncloud.android.ui.preview.pdf
 
-import android.content.Intent
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.Menu
 import android.view.View
-import android.view.ViewGroup
-import androidx.annotation.VisibleForTesting
+import androidx.annotation.StringRes
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.ViewModelProvider
-import com.google.android.material.snackbar.Snackbar
-import com.nextcloud.client.di.Injectable
-import com.nextcloud.client.di.ViewModelFactory
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.withResumed
+import androidx.recyclerview.widget.RecyclerView
 import com.nextcloud.utils.MenuUtils
 import com.nextcloud.utils.SnackbarUtil
 import com.nextcloud.utils.extensions.getParcelableArgument
@@ -27,21 +23,14 @@ import com.owncloud.android.databinding.PreviewPdfFragmentBinding
 import com.owncloud.android.datamodel.OCFile
 import com.owncloud.android.lib.common.utils.Log_OC
 import com.owncloud.android.ui.activity.FileDisplayActivity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.IOException
-import javax.inject.Inject
 
-class PreviewPdfFragment :
-    Fragment(),
-    Injectable {
-
-    @Inject
-    lateinit var vmFactory: ViewModelFactory
-
-    private lateinit var binding: PreviewPdfFragmentBinding
-    private lateinit var viewModel: PreviewPdfViewModel
+class PreviewPdfFragment : Fragment(R.layout.preview_pdf_fragment) {
     private lateinit var file: OCFile
-
-    private var snack: Snackbar? = null
 
     companion object {
         private const val ARG_FILE = "FILE"
@@ -54,53 +43,59 @@ class PreviewPdfFragment :
         }
     }
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
-        binding = PreviewPdfFragmentBinding.inflate(inflater)
-        return binding.root
-    }
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        setupObservers()
-
+        val recycler = PreviewPdfFragmentBinding.bind(view).pdfRecycler
+        val owner = viewLifecycleOwner
         file = requireArguments().getParcelableArgument(ARG_FILE, OCFile::class.java)!!
-        try {
-            viewModel.process(file)
-        } catch (e: SecurityException) {
-            Log_OC.e(this, "onViewCreated: trying to open password protected PDF", e)
-            parentFragmentManager.popBackStack()
-            SnackbarUtil.show(activity, R.string.pdf_password_protected)
-        } catch (e: IOException) {
-            Log_OC.e(this, "Unable to read PDF", e)
-            parentFragmentManager.popBackStack()
-            SnackbarUtil.show(activity, R.string.pdf_unreadable)
+        recycler.contentDescription = file.fileName
+        owner.lifecycleScope.launch {
+            try {
+                val path = file.storagePath ?: throw IOException("PDF has no local path")
+                PdfPageRenderer.withDocument(path) { renderer ->
+                    displayPages(recycler, renderer, renderer.readPageAspectRatios())
+                }
+            } catch (e: SecurityException) {
+                Log_OC.e(this@PreviewPdfFragment, "Trying to open a password-protected PDF", e)
+                owner.lifecycle.withResumed { closeWithError(R.string.pdf_password_protected) }
+            } catch (e: IOException) {
+                Log_OC.e(this@PreviewPdfFragment, "Unable to read PDF", e)
+                owner.lifecycle.withResumed { closeWithError(R.string.pdf_unreadable) }
+            }
         }
     }
 
-    private fun setupObservers() {
-        viewModel.pdfRenderer.observe(viewLifecycleOwner) { renderer ->
-            binding.pdfRecycler.adapter = PreviewPdfAdapter(renderer, getScreenWidth()) { page ->
-                viewModel.onClickPage(page)
-            }
+    private suspend fun displayPages(
+        recycler: RecyclerView,
+        renderer: PdfPageRenderer,
+        aspectRatios: DoubleArray
+    ): Unit = withContext(Dispatchers.Main.immediate) {
+        val adapter = PreviewPdfAdapter(renderer, aspectRatios, this)
+        val resizeListener = View.OnLayoutChangeListener { view, _, _, _, _, _, _, _, _ ->
+            adapter.updateViewportWidth(view.width - view.paddingLeft - view.paddingRight)
         }
-        viewModel.previewImagePath.observe(viewLifecycleOwner) {
-            it?.let { path ->
-                val intent = Intent(context, PreviewBitmapActivity::class.java).apply {
-                    putExtra(PreviewBitmapActivity.EXTRA_BITMAP_PATH, path)
-                }
-                requireContext().startActivity(intent)
-            }
+        adapter.updateViewportWidth(recycler.width - recycler.paddingLeft - recycler.paddingRight)
+        recycler.itemAnimator = null
+        recycler.adapter = adapter
+        recycler.addOnLayoutChangeListener(resizeListener)
+        try {
+            awaitCancellation()
+        } finally {
+            recycler.removeOnLayoutChangeListener(resizeListener)
+            recycler.adapter = null
         }
+    }
+
+    private fun closeWithError(@StringRes message: Int) {
+        parentFragmentManager.popBackStack()
+        SnackbarUtil.show(activity, message)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        viewModel = ViewModelProvider(this, vmFactory)[PreviewPdfViewModel::class.java]
         setHasOptionsMenu(true)
     }
-
-    private fun getScreenWidth(): Int = requireContext().resources.displayMetrics.widthPixels
 
     override fun onPrepareOptionsMenu(menu: Menu) {
         super.onPrepareOptionsMenu(menu)
@@ -114,10 +109,5 @@ class PreviewPdfFragment :
             parent.showSortListGroup(false)
             parent.updateActionBarTitleAndHomeButton(file)
         }
-    }
-
-    @VisibleForTesting
-    fun dismissSnack() {
-        snack?.dismiss()
     }
 }

@@ -128,14 +128,12 @@ import com.owncloud.android.ui.fragment.autoUpload.AutoUploadFragment
 import com.owncloud.android.ui.fragment.uploadList.UploadListFragment
 import com.owncloud.android.ui.navigation.NavigatorActivity
 import com.owncloud.android.ui.preview.media.PreviewMediaDownloadFragment
-import com.owncloud.android.ui.preview.pdf.PreviewBitmapActivity
 import com.owncloud.android.ui.preview.media.PreviewMediaActivity
 import com.owncloud.android.ui.preview.media.PreviewMediaFragment
 import com.owncloud.android.ui.preview.media.PreviewPlaybackFragment
 import com.owncloud.android.ui.preview.text.PreviewTextFileFragment
 import com.owncloud.android.ui.preview.text.PreviewTextFragment
 import com.owncloud.android.ui.preview.text.PreviewTextStringFragment
-import com.owncloud.android.ui.preview.pdf.PreviewPdfFragment
 import com.owncloud.android.ui.trashbin.TrashbinFragment
 import dagger.Module
 import dagger.android.ContributesAndroidInjector
@@ -356,9 +354,6 @@ internal interface ComponentsModule {
     fun dashboardWidgetService(): DashboardWidgetService
 
     @ContributesAndroidInjector
-    fun previewPDFFragment(): PreviewPdfFragment
-
-    @ContributesAndroidInjector
     fun sharedFragment(): SharedListFragment
 
     @ContributesAndroidInjector
@@ -453,9 +448,6 @@ internal interface ComponentsModule {
 
     @ContributesAndroidInjector
     fun galleryFragmentBottomSheetDialog(): GalleryFragmentBottomSheetDialog
-
-    @ContributesAndroidInjector
-    fun previewBitmapActivity(): PreviewBitmapActivity
 
     @ContributesAndroidInjector
     fun fileUploadHelper(): FileUploadHelper
