@@ -11,20 +11,30 @@ package com.owncloud.android.ui.preview.pdf
 import android.view.ViewTreeObserver
 import android.widget.ImageView
 import androidx.core.view.children
+import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.launchActivity
 import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.Espresso.pressBack
 import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.action.ViewActions.swipeDown
+import androidx.test.espresso.action.ViewActions.swipeUp
 import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.matcher.ViewMatchers.Visibility.GONE
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
+import androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility
 import androidx.test.espresso.matcher.ViewMatchers.withId
+import androidx.test.rule.GrantPermissionRule
+import com.nextcloud.test.GrantTestPermissionRule
 import com.nextcloud.test.TestActivity
 import com.owncloud.android.AbstractIT
 import com.owncloud.android.R
 import com.owncloud.android.datamodel.OCFile
+import com.owncloud.android.ui.activity.FileDisplayActivity
 import com.owncloud.android.utils.ScreenshotTest
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -36,6 +46,9 @@ class PreviewPdfFragmentScreenshotIT : AbstractIT() {
         private const val PDF_FILE_ASSET = "test.pdf"
         private const val RENDER_TIMEOUT_SECONDS = 10L
     }
+
+    @get:Rule
+    val permissionRule: GrantPermissionRule = GrantTestPermissionRule.grantStorageAndNotification()
 
     @Test
     @ScreenshotTest
@@ -55,18 +68,46 @@ class PreviewPdfFragmentScreenshotIT : AbstractIT() {
         }
     }
 
+    @Test
+    fun pdfKeepsAppNavigationHiddenUntilBack() {
+        val pdf = testPdf()
+        val bottomNavigation = onView(withId(R.id.bottom_navigation))
+        val reader = onView(withId(R.id.pdf_recycler))
+        launchActivity<FileDisplayActivity>().use { scenario ->
+            bottomNavigation.check(matches(isDisplayed()))
+            awaitVisiblePages(scenario) { it.startPdfPreview(pdf) }
+            bottomNavigation.check(matches(withEffectiveVisibility(GONE)))
+
+            reader.perform(swipeUp(), swipeDown(), click())
+            scenario.onActivity { it.showBottomNavigationBar(true) }
+            reader.check(matches(isDisplayed()))
+            bottomNavigation.check(matches(withEffectiveVisibility(GONE)))
+
+            scenario.recreate()
+            reader.check(matches(isDisplayed()))
+            bottomNavigation.check(matches(withEffectiveVisibility(GONE)))
+
+            pressBack()
+            bottomNavigation.check(matches(isDisplayed()))
+        }
+    }
+
+    private fun testPdf(): OCFile = OCFile("/test.pdf").apply {
+        storagePath = getFile(PDF_FILE_ASSET).absolutePath
+    }
+
     private fun withRenderedPdf(test: (ActivityScenario<TestActivity>) -> Unit) {
-        val pdf = OCFile("/test.pdf").apply { storagePath = getFile(PDF_FILE_ASSET).absolutePath }
+        val pdf = testPdf()
         launchActivity<TestActivity>().use { scenario ->
-            awaitVisiblePages(scenario, pdf)
+            awaitVisiblePages(scenario) { it.addFragment(PreviewPdfFragment.newInstance(pdf)) }
             test(scenario)
         }
     }
 
-    private fun awaitVisiblePages(scenario: ActivityScenario<TestActivity>, pdf: OCFile) {
+    private fun <T : FragmentActivity> awaitVisiblePages(scenario: ActivityScenario<T>, openPdf: (T) -> Unit) {
         val rendered = CountDownLatch(1)
         scenario.onActivity { activity ->
-            activity.addFragment(PreviewPdfFragment.newInstance(pdf))
+            openPdf(activity)
             activity.supportFragmentManager.executePendingTransactions()
             val pages = activity.findViewById<RecyclerView>(R.id.pdf_recycler)
             pages.viewTreeObserver.addOnPreDrawListener(object : ViewTreeObserver.OnPreDrawListener {

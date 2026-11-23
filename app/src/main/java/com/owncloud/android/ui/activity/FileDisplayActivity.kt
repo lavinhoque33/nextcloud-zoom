@@ -75,6 +75,7 @@ import com.nextcloud.utils.extensions.isActive
 import com.nextcloud.utils.extensions.lastFragment
 import com.nextcloud.utils.extensions.navigateToAllFiles
 import com.nextcloud.utils.extensions.setVisibleIf
+import com.nextcloud.utils.extensions.slideHideBottomBehavior
 import com.nextcloud.utils.view.FastScrollUtils
 import com.owncloud.android.MainApp
 import com.owncloud.android.R
@@ -245,6 +246,9 @@ class FileDisplayActivity :
     // The list fragment lists its directory when it is created, so onResume must not list it a second time.
     private var listFragmentJustCreated = false
 
+    private var bottomNavigationRequested = true
+    private var pdfPreviewOwnsBottomNavigation = false
+
     // FileDownloadWorker is started from many places, only this file is previewed right after its download.
     private var immediatePreviewFileId = NO_IMMEDIATE_PREVIEW_FILE_ID
 
@@ -288,6 +292,8 @@ class FileDisplayActivity :
         observeWorkers()
         registerBackPressCallback()
         setupDrawer(menuItemId)
+        supportFragmentManager.addOnBackStackChangedListener(::updatePdfBottomNavigation)
+        updatePdfBottomNavigation()
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
@@ -1190,6 +1196,30 @@ class FileDisplayActivity :
 
     fun setMainFabVisible(visible: Boolean) {
         binding.fabMain.isVisible = visible
+    }
+
+    override fun showBottomNavigationBar(show: Boolean) {
+        bottomNavigationRequested = show
+        // A download progress fragment can request to show the bar as it is removed.
+        super.showBottomNavigationBar(show && !pdfPreviewOwnsBottomNavigation && !isPdfPreviewInContainer())
+    }
+
+    private fun isPdfPreviewInContainer(): Boolean {
+        val fragment = supportFragmentManager.findFragmentById(R.id.left_fragment_container)
+        return fragment is PreviewPdfFragment && fragment.isAdded
+    }
+
+    private fun updatePdfBottomNavigation() {
+        val showingPdf = isPdfPreviewInContainer()
+        if (pdfPreviewOwnsBottomNavigation == showingPdf) return
+
+        pdfPreviewOwnsBottomNavigation = showingPdf
+        val show = bottomNavigationRequested && !showingPdf
+        super.showBottomNavigationBar(show)
+        if (show) {
+            // The file list may have scrolled the bar offscreen before the PDF opened.
+            bottomNavigationView.slideHideBottomBehavior(true)
+        }
     }
     // endregion
 

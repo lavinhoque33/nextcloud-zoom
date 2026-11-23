@@ -16,6 +16,8 @@ Upstream's viewer loses detail in three places; for a 540×21242 strip the resul
 | Image downloaded | decodes to fit the screen (540×21242 → 67×2655) | decodes at full resolution up to 16 MP |
 | Zoom levels | fixed 1× / 1.75× / 3× | double tap fills the screen along the short side; maximum is 3× past that and past 1:1 pixels |
 
+While zoomed in, swipe to pan the current image. Zoom back out until the whole image fits to swipe to another file.
+
 Gallery thumbnails and the preview cache are unchanged.
 
 The `zoom` flavor is otherwise the F-Droid (`generic`) build, so it also has no Google Play
@@ -31,6 +33,7 @@ Files: `app/src/zoom/`, the `zoom` flavor in `app/build.gradle.kts`, `DetailZoom
 Tap a PDF to open it in Nextcloud Zoom. Remote PDFs download before opening; downloaded PDFs can be read offline.
 Scroll to read. Tapping a page leaves you in the document at the same position. Each page fits the reader width
 independently, even when a document mixes page sizes. To use another reader, choose **Open with** on the downloaded file.
+The app's bottom navigation stays hidden while reading and returns when you go back to the file list.
 
 ## Build and sign
 

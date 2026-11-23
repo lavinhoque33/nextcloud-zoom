@@ -10,11 +10,29 @@ import android.content.Context
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
+import android.view.MotionEvent
 import com.github.chrisbanes.photoview.PhotoView
 
 /** [PhotoView] whose zoom levels follow the image's shape, see [DetailZoomScaleLevels]. */
 class DetailZoomPhotoView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null, defStyle: Int = 0) :
     PhotoView(context, attrs, defStyle) {
+
+    private var keepGestureOnImage = false
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        // PhotoView normally hands drags at an image edge to the pager, even when zoomed.
+        // Once this gesture zooms or uses two fingers, keep it on the image until the next down.
+        val keepOnImage = (event.actionMasked != MotionEvent.ACTION_DOWN && keepGestureOnImage) ||
+            event.pointerCount > 1 || scale > minimumScale + FIT_SCALE_TOLERANCE
+        if (keepOnImage != keepGestureOnImage) {
+            keepGestureOnImage = keepOnImage
+            setAllowParentInterceptOnEdge(!keepOnImage)
+            if (keepOnImage) {
+                parent?.requestDisallowInterceptTouchEvent(true)
+            }
+        }
+        return super.dispatchTouchEvent(event)
+    }
 
     override fun setImageDrawable(drawable: Drawable?) {
         super.setImageDrawable(drawable)
@@ -38,5 +56,10 @@ class DetailZoomPhotoView @JvmOverloads constructor(context: Context, attrs: Att
             bitmapWidth = (image as? BitmapDrawable)?.bitmap?.width ?: image.intrinsicWidth
         ) ?: return
         setScaleLevels(levels.minimum, levels.medium, levels.maximum)
+    }
+
+    private companion object {
+        // Pinch and animated zoom multiply into the matrix and can finish slightly above 1x.
+        const val FIT_SCALE_TOLERANCE = 0.0001f
     }
 }

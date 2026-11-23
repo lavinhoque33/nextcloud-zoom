@@ -1,3 +1,8 @@
+## 35.1.0-zoom.5
+
+- The app's bottom navigation stays hidden while reading a PDF.
+- Zoomed-in images keep horizontal swipes for panning. Zoom back out to switch files.
+
 ## 35.1.0-zoom.4
 
 - PDF pages render in the background while scrolling. Tapping a page no longer opens a separate image preview.
