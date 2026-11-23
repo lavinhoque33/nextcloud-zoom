@@ -185,7 +185,8 @@ android {
             register("zoom") {
                 applicationId = "com.nextcloud.client.zoom"
                 dimension = "default"
-                versionNameSuffix = "-zoom"
+                versionCode = 350010091
+                versionNameSuffix = "-zoom.2"
             }
         }
     }
@@ -448,7 +449,6 @@ dependencies {
     implementation(libs.gson)
     implementation(libs.sectioned.recyclerview)
     implementation(libs.photoview)
-    implementation(libs.android.gif.drawable)
     implementation(libs.qrcodescanner) // "com.github.blikoon:QRCodeScanner:0.1.2"
     implementation(libs.androidsvg)
     implementation(libs.annotation)

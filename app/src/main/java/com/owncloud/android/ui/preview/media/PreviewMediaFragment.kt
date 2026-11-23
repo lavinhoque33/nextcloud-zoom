@@ -17,6 +17,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.drawable.Animatable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.LayerDrawable
 import android.graphics.drawable.PictureDrawable
@@ -77,7 +78,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import pl.droidsonroids.gif.GifDrawable
 import java.io.FileInputStream
 import java.io.FileNotFoundException
 import java.io.IOException
@@ -107,6 +107,7 @@ class PreviewMediaFragment :
     private var ignoreFirstSavedState = false
     private var loadBitmapTask: LoadBitmapTask? = null
     private var resizedImageJob: Job? = null
+    private var gifJob: Job? = null
 
     @Inject
     lateinit var connectivityService: ConnectivityService
@@ -238,6 +239,11 @@ class PreviewMediaFragment :
 
         binding.image.tag = file.fileId
 
+        if (MIME_TYPE_GIF.equals(file.mimeType, ignoreCase = true)) {
+            setMultiListLoadingMessage()
+            return
+        }
+
         val screenSize = ScreenMetrics.size(activity)
         val width = screenSize.x
         val height = screenSize.y
@@ -310,8 +316,50 @@ class PreviewMediaFragment :
         return cachedImage
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (!MIME_TYPE_GIF.equals(file?.mimeType, ignoreCase = true)) {
+            return
+        }
+
+        if (gifJob == null) {
+            gifJob = viewLifecycleOwner.lifecycleScope.launch { showGif() }
+        } else {
+            (binding.image.drawable as? Animatable)?.start()
+        }
+    }
+
+    private suspend fun showGif() {
+        try {
+            val drawable = GifPreviewLoader.load(file, requireContext().cacheDir, clientRepository)
+            binding.image.setImageDrawable(drawable)
+            binding.image.setBackgroundResource(R.color.bg_default)
+            binding.image.visibility = View.VISIBLE
+            binding.emptyListProgress.visibility = View.GONE
+            if (isResumed) {
+                (drawable as? Animatable)?.start()
+            }
+        } catch (e: IOException) {
+            Log_OC.e(TAG, "Could not open GIF: ${file.remotePath}", e)
+            showErrorMessage(R.string.preview_image_error_unknown_format)
+        } catch (e: OutOfMemoryError) {
+            Log_OC.e(TAG, "Out of memory loading GIF: ${file.remotePath}", e)
+            showErrorMessage(R.string.common_error_out_memory)
+        }
+    }
+
+    override fun onPause() {
+        (binding.image.drawable as? Animatable)?.stop()
+        super.onPause()
+    }
+
     override fun onStop() {
         Log_OC.d(TAG, "onStop starts")
+        if (gifJob != null) {
+            gifJob?.cancel()
+            gifJob = null
+            binding.image.setImageDrawable(null)
+        }
         loadBitmapTask?.cancel(true)
         loadBitmapTask = null
         releaseOwnedBitmap()
@@ -571,10 +619,7 @@ class PreviewMediaFragment :
                         bitmap.height
                 )
 
-                if (MIME_TYPE_PNG.equals(result.ocFile.mimeType, ignoreCase = true) ||
-                    MIME_TYPE_GIF.equals(result.ocFile.mimeType, ignoreCase = true)
-                ) {
-                    resources
+                if (MIME_TYPE_PNG.equals(result.ocFile.mimeType, ignoreCase = true)) {
                     imageView.setImageDrawable(generateCheckerboardLayeredDrawable(result, bitmap))
                 } else {
                     imageView.setImageBitmap(bitmap)
@@ -585,7 +630,6 @@ class PreviewMediaFragment :
                 if (drawable != null &&
                     MIME_TYPE_SVG.equals(result.ocFile.mimeType, ignoreCase = true)
                 ) {
-                    resources
                     imageView.setImageDrawable(generateCheckerboardLayeredDrawable(result, null))
                 }
             }
@@ -606,20 +650,7 @@ class PreviewMediaFragment :
         val layers = arrayOfNulls<Drawable>(2)
         layers[0] = ResourcesCompat.getDrawable(resources, R.color.bg_default, null)
 
-        val bitmapDrawable =
-            if (MIME_TYPE_PNG.equals(result.ocFile.mimeType, ignoreCase = true)) {
-                bitmap?.toDrawable(resources)
-            } else if (MIME_TYPE_SVG.equals(result.ocFile.mimeType, ignoreCase = true)) {
-                result.drawable
-            } else if (MIME_TYPE_GIF.equals(result.ocFile.mimeType, ignoreCase = true)) {
-                try {
-                    GifDrawable(result.ocFile.storagePath)
-                } catch (exception: IOException) {
-                    result.drawable
-                }
-            } else {
-                bitmap?.toDrawable(resources)
-            }
+        val bitmapDrawable = bitmap?.toDrawable(resources) ?: result.drawable
 
         layers[1] = bitmapDrawable
         val layerDrawable = LayerDrawable(layers)
@@ -629,23 +660,14 @@ class PreviewMediaFragment :
             val bitmapWidth: Int
             val bitmapHeight: Int
 
-            if (MIME_TYPE_PNG.equals(result.ocFile.mimeType, ignoreCase = true)) {
-                if (bitmap == null) {
-                    return layerDrawable
-                }
-
+            if (bitmap != null) {
                 bitmapWidth = convertDpToPixel(bitmap.width.toFloat(), getActivity())
                 bitmapHeight = convertDpToPixel(bitmap.height.toFloat(), getActivity())
-            } else if (bitmapDrawable is PictureDrawable) {
+            } else if (bitmapDrawable != null) {
                 bitmapWidth = bitmapDrawable.intrinsicWidth
                 bitmapHeight = bitmapDrawable.intrinsicHeight
             } else {
-                if (bitmapDrawable == null) {
-                    return layerDrawable
-                }
-
-                bitmapWidth = convertDpToPixel(bitmapDrawable.intrinsicWidth.toFloat(), getActivity())
-                bitmapHeight = convertDpToPixel(bitmapDrawable.intrinsicHeight.toFloat(), getActivity())
+                return layerDrawable
             }
 
             layerDrawable.setLayerSize(0, bitmapWidth, bitmapHeight)

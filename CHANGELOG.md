@@ -1,3 +1,7 @@
+## 35.1.0-zoom.2
+
+- Animated GIFs play in the image viewer, including files that have not been downloaded.
+
 ## 3.33.0 (September 10, 2025)
 
 - Migrate to Glide 4

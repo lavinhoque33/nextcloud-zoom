@@ -3,7 +3,6 @@
 
 [versions]
 androidCommonLibraryVersion = "0.35.0"
-androidGifDrawableVersion = "1.2.32"
 androidImageCropperVersion = "4.7.0"
 androidLibraryVersion ="2.27.0"
 androidOpensslVersion = "3.5.6.1"
@@ -106,7 +105,6 @@ library = { module = "me.zhanghai.android.fastscroll:library", version.ref = "li
 loaderviewlibrary = { module = "io.github.elye:loaderviewlibrary", version.ref = "loaderviewlibraryVersion" }
 photoview = { module = "com.github.Baseflow:PhotoView", version.ref = "photoviewVersion" }
 material = { module = "com.google.android.material:material", version.ref = "materialVersion" }
-android-gif-drawable = { module = "pl.droidsonroids.gif:android-gif-drawable", version.ref = "androidGifDrawableVersion" }
 android-image-cropper = { module = "com.vanniktech:android-image-cropper", version.ref = "androidImageCropperVersion" }
 androidsvg = { module = "com.caverock:androidsvg-aar", version.ref = "androidsvgVersion" }
 coil = { module = "io.coil-kt:coil", version.ref = "coilVersion" }
