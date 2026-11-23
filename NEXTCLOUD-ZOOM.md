@@ -26,6 +26,12 @@ Files: `app/src/zoom/`, the `zoom` flavor in `app/build.gradle.kts`, `DetailZoom
 `getFullDetailPreviewEndpoint`, and the viewer changes in `PreviewMediaFragment` and
 `ResizedImageGenerationJob`.
 
+## Reading PDFs
+
+Tap a PDF to open it in Nextcloud Zoom. Remote PDFs download before opening; downloaded PDFs can be read offline.
+Scroll between pages or tap a page to zoom in. Each page fits the reader width independently, preserving its aspect
+ratio even when a document mixes page sizes. To use another reader, choose **Open with** on the downloaded file.
+
 ## Build and sign
 
 ```sh

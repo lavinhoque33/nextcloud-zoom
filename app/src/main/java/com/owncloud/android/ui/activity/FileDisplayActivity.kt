@@ -1804,10 +1804,6 @@ class FileDisplayActivity :
     // endregion
 
     // region Downloads
-    fun setFileIDForImmediatePreview(fileId: Long) {
-        immediatePreviewFileId = fileId
-    }
-
     private fun onDownloadStarted(intent: Intent) {
         Log_OC.d(TAG, "download worker started")
         getFileOfDownloadEvent(intent)?.let { updateFileDownloadIndicator(FileDownloadIndicator.Downloading, it) }
@@ -1941,13 +1937,16 @@ class FileDisplayActivity :
                 true
             }
 
-            PreviewTextFileFragment.canBePreviewed(fileToPreview) -> {
-                startTextPreview(fileToPreview, true)
+            MimeTypeUtil.isPDF(fileToPreview) -> {
+                if (supportFragmentManager.isStateSaved) return false
+                // The download progress screen is not a reading destination when navigating back.
+                supportFragmentManager.popBackStack()
+                startPdfPreview(fileToPreview)
                 true
             }
 
-            MimeTypeUtil.isPDF(fileToPreview) -> {
-                startPdfPreview(fileToPreview)
+            PreviewTextFileFragment.canBePreviewed(fileToPreview) -> {
+                startTextPreview(fileToPreview, true)
                 true
             }
 
@@ -2060,7 +2059,10 @@ class FileDisplayActivity :
      * @param parentFolder folder containing [file]
      */
     fun startDownloadForPreview(file: OCFile, parentFolder: OCFile?) {
-        if (!file.isFileEligibleForImmediatePreview) {
+        if (file.isFileEligibleForImmediatePreview) {
+            immediatePreviewFileId = file.fileId
+        } else {
+            immediatePreviewFileId = NO_IMMEDIATE_PREVIEW_FILE_ID
             user.orElse(null)?.let {
                 replaceLeftFragment(FileDetailFragment.newInstance(file, parentFolder, it), showSortListGroup = false)
             }
@@ -2506,12 +2508,6 @@ class FileDisplayActivity :
     }
 
     fun startPdfPreview(file: OCFile) {
-        // prefer third party PDF apps
-        if (fileOperationsHelper.canOpenFile(file)) {
-            fileOperationsHelper.openFile(file)
-            return
-        }
-
         replaceLeftFragment(PreviewPdfFragment.newInstance(file), showSortListGroup = false)
         configureToolbarForPreview(file)
         setMainFabVisible(false)

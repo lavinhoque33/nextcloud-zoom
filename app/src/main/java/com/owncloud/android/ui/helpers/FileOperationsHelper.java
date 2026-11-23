@@ -261,14 +261,6 @@ public class FileOperationsHelper {
         fileActivity.dismissLoadingDialog();
     }
 
-    public boolean canOpenFile(OCFile file) {
-        final Intent openFileWithIntent = createOpenFileIntent(file);
-
-        List<ResolveInfo> launchables = fileActivity.getPackageManager().
-            queryIntentActivities(openFileWithIntent, PackageManager.GET_RESOLVED_FILTER);
-        return !launchables.isEmpty();
-    }
-
     private void openRichDocumentFileWithoutAvailableApps(@NonNull OCFile file) {
         Account account = fileActivity.getAccount();
         OCCapability capability = fileActivity.getStorageManager().getCapability(account.name);

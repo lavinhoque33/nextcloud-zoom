@@ -112,6 +112,7 @@ import com.owncloud.android.ui.interfaces.OCFileListFragmentInterface
 import com.owncloud.android.ui.navigation.model.ActionBarStyle
 import com.owncloud.android.utils.FileSortOrder
 import com.owncloud.android.utils.FileStorageUtils
+import com.owncloud.android.utils.MimeTypeUtil
 import com.owncloud.android.utils.PermissionUtil
 import com.owncloud.android.utils.theme.ThemeUtils
 import kotlinx.coroutines.Dispatchers
@@ -807,8 +808,12 @@ open class OCFileListFragment :
             return
         }
 
-        val webViewAvailable = context.isWebViewAvailable()
         val fileDisplayActivity = containerActivity as? FileDisplayActivity
+        if (fileDisplayActivity != null && MimeTypeUtil.isPDF(file)) {
+            fileDisplayActivity.startDownloadForPreview(file, currentFile)
+            return
+        }
+        val webViewAvailable = context.isWebViewAvailable()
 
         when {
             !file.isEncrypted && fileDisplayActivity != null && fileDisplayActivity.canPreviewInAudioPlayer(file) -> {
@@ -822,12 +827,7 @@ open class OCFileListFragment :
             canOpenAsRichDocument(file, webViewAvailable) ->
                 containerActivity?.fileOperationsHelper?.openFileAsRichDocument(file, context)
 
-            fileDisplayActivity != null -> {
-                fileDisplayActivity.startDownloadForPreview(file, currentFile)
-                if (file.isFileEligibleForImmediatePreview) {
-                    fileDisplayActivity.setFileIDForImmediatePreview(file.fileId)
-                }
-            }
+            fileDisplayActivity != null -> fileDisplayActivity.startDownloadForPreview(file, currentFile)
         }
     }
 

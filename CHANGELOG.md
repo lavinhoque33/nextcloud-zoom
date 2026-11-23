@@ -1,3 +1,8 @@
+## 35.1.0-zoom.3
+
+- Tap a PDF to read it in Nextcloud Zoom. Remote PDFs download and open automatically; local PDFs work offline.
+- Each page fits the reader width independently. Use **Open with** on a downloaded file to choose another reader.
+
 ## 35.1.0-zoom.2
 
 - Animated GIFs play in the image viewer, including files that have not been downloaded.

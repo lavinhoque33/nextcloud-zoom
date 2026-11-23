@@ -27,6 +27,7 @@ import com.owncloud.android.databinding.PreviewPdfFragmentBinding
 import com.owncloud.android.datamodel.OCFile
 import com.owncloud.android.lib.common.utils.Log_OC
 import com.owncloud.android.ui.activity.FileDisplayActivity
+import java.io.IOException
 import javax.inject.Inject
 
 class PreviewPdfFragment :
@@ -69,7 +70,11 @@ class PreviewPdfFragment :
         } catch (e: SecurityException) {
             Log_OC.e(this, "onViewCreated: trying to open password protected PDF", e)
             parentFragmentManager.popBackStack()
-            SnackbarUtil.show(binding.root, R.string.pdf_password_protected)
+            SnackbarUtil.show(activity, R.string.pdf_password_protected)
+        } catch (e: IOException) {
+            Log_OC.e(this, "Unable to read PDF", e)
+            parentFragmentManager.popBackStack()
+            SnackbarUtil.show(activity, R.string.pdf_unreadable)
         }
     }
 
