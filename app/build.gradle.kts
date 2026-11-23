@@ -185,8 +185,8 @@ android {
             register("zoom") {
                 applicationId = "com.nextcloud.client.zoom"
                 dimension = "default"
-                versionCode = 350010094
-                versionNameSuffix = "-zoom.5"
+                versionCode = 350010095
+                versionNameSuffix = "-zoom.6"
             }
         }
     }

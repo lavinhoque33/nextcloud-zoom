@@ -33,7 +33,8 @@ Files: `app/src/zoom/`, the `zoom` flavor in `app/build.gradle.kts`, `DetailZoom
 Tap a PDF to open it in Nextcloud Zoom. Remote PDFs download before opening; downloaded PDFs can be read offline.
 Scroll to read. Tapping a page leaves you in the document at the same position. Each page fits the reader width
 independently, even when a document mixes page sizes. To use another reader, choose **Open with** on the downloaded file.
-The app's bottom navigation stays hidden while reading and returns when you go back to the file list.
+Tap once or scroll to hide the filename and Android's system bars. Double-tap the page to bring them back.
+You can also swipe from the screen edge for system navigation. Back restores the file list's toolbar and bottom tabs.
 
 ## Build and sign
 

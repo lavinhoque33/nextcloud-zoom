@@ -8,8 +8,12 @@
  */
 package com.owncloud.android.ui.preview.pdf
 
+import android.os.SystemClock
+import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.ImageView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.children
 import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.RecyclerView
@@ -17,9 +21,13 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.launchActivity
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.Espresso.pressBack
+import androidx.test.espresso.action.GeneralLocation
+import androidx.test.espresso.action.GeneralSwipeAction
+import androidx.test.espresso.action.Press
+import androidx.test.espresso.action.Swipe
 import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.action.ViewActions.doubleClick
 import androidx.test.espresso.action.ViewActions.swipeDown
-import androidx.test.espresso.action.ViewActions.swipeUp
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.Visibility.GONE
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
@@ -33,6 +41,7 @@ import com.owncloud.android.R
 import com.owncloud.android.datamodel.OCFile
 import com.owncloud.android.ui.activity.FileDisplayActivity
 import com.owncloud.android.utils.ScreenshotTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -45,6 +54,8 @@ class PreviewPdfFragmentScreenshotIT : AbstractIT() {
     companion object {
         private const val PDF_FILE_ASSET = "test.pdf"
         private const val RENDER_TIMEOUT_SECONDS = 10L
+        private const val CHROME_TIMEOUT_MS = 2_000L
+        private const val CHROME_POLL_MS = 16L
     }
 
     @get:Rule
@@ -69,6 +80,22 @@ class PreviewPdfFragmentScreenshotIT : AbstractIT() {
     }
 
     @Test
+    fun doubleTapRestoresReaderChromeAndSingleTapHidesItAgain() {
+        val pdf = testPdf()
+        launchActivity<FileDisplayActivity>().use { scenario ->
+            awaitVisiblePages(scenario) { it.startPdfPreview(pdf) }
+            val reader = onView(withId(R.id.pdf_recycler))
+            reader.perform(click())
+            assertReadingChrome(scenario, visible = false)
+            reader.perform(doubleClick())
+            assertReadingChrome(scenario, visible = true)
+            onView(withId(R.id.bottom_navigation)).check(matches(withEffectiveVisibility(GONE)))
+            reader.perform(click()).check(matches(isDisplayed()))
+            assertReadingChrome(scenario, visible = false)
+        }
+    }
+
+    @Test
     fun pdfKeepsAppNavigationHiddenUntilBack() {
         val pdf = testPdf()
         val bottomNavigation = onView(withId(R.id.bottom_navigation))
@@ -77,8 +104,13 @@ class PreviewPdfFragmentScreenshotIT : AbstractIT() {
             bottomNavigation.check(matches(isDisplayed()))
             awaitVisiblePages(scenario) { it.startPdfPreview(pdf) }
             bottomNavigation.check(matches(withEffectiveVisibility(GONE)))
+            assertReadingChrome(scenario, visible = true)
 
-            reader.perform(swipeUp(), swipeDown(), click())
+            reader.perform(
+                GeneralSwipeAction(Swipe.FAST, GeneralLocation.CENTER, GeneralLocation.TOP_CENTER, Press.FINGER)
+            )
+            assertReadingChrome(scenario, visible = false)
+            reader.perform(swipeDown(), click())
             scenario.onActivity { it.showBottomNavigationBar(true) }
             reader.check(matches(isDisplayed()))
             bottomNavigation.check(matches(withEffectiveVisibility(GONE)))
@@ -86,9 +118,32 @@ class PreviewPdfFragmentScreenshotIT : AbstractIT() {
             scenario.recreate()
             reader.check(matches(isDisplayed()))
             bottomNavigation.check(matches(withEffectiveVisibility(GONE)))
+            assertReadingChrome(scenario, visible = false)
 
             pressBack()
             bottomNavigation.check(matches(isDisplayed()))
+            assertReadingChrome(scenario, visible = true)
+        }
+    }
+
+    private fun assertReadingChrome(scenario: ActivityScenario<FileDisplayActivity>, visible: Boolean) {
+        val deadline = SystemClock.uptimeMillis() + CHROME_TIMEOUT_MS
+        do {
+            var ready = false
+            scenario.onActivity { activity ->
+                val insets = ViewCompat.getRootWindowInsets(activity.window.decorView) ?: return@onActivity
+                ready = activity.findViewById<View>(R.id.toolbar_frame).isShown == visible &&
+                    insets.isVisible(WindowInsetsCompat.Type.navigationBars()) == visible &&
+                    insets.isVisible(WindowInsetsCompat.Type.statusBars()) == visible
+            }
+            if (ready) return
+            SystemClock.sleep(CHROME_POLL_MS)
+        } while (SystemClock.uptimeMillis() < deadline)
+        scenario.onActivity { activity ->
+            assertEquals("PDF toolbar", visible, activity.findViewById<View>(R.id.toolbar_frame).isShown)
+            val insets = requireNotNull(ViewCompat.getRootWindowInsets(activity.window.decorView))
+            assertEquals("Android navigation bar", visible, insets.isVisible(WindowInsetsCompat.Type.navigationBars()))
+            assertEquals("Android status bar", visible, insets.isVisible(WindowInsetsCompat.Type.statusBars()))
         }
     }
 

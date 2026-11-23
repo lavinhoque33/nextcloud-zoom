@@ -1,3 +1,7 @@
+## 35.1.0-zoom.6
+
+- Tap once or scroll a PDF to hide its filename and Android system bars; double-tap to show them again.
+
 ## 35.1.0-zoom.5
 
 - The app's bottom navigation stays hidden while reading a PDF.

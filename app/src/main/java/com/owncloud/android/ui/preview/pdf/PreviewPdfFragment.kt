@@ -8,10 +8,18 @@
 package com.owncloud.android.ui.preview.pdf
 
 import android.os.Bundle
+import android.view.GestureDetector
 import android.view.Menu
+import android.view.MotionEvent
 import android.view.View
 import androidx.annotation.StringRes
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.doOnAttach
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.withResumed
 import androidx.recyclerview.widget.RecyclerView
@@ -31,9 +39,11 @@ import java.io.IOException
 
 class PreviewPdfFragment : Fragment(R.layout.preview_pdf_fragment) {
     private lateinit var file: OCFile
+    private var restoreReadingChrome: (() -> Unit)? = null
 
     companion object {
         private const val ARG_FILE = "FILE"
+        private const val STATE_FULLSCREEN = "pdfFullscreen"
 
         @JvmStatic
         fun newInstance(file: OCFile): PreviewPdfFragment = PreviewPdfFragment().apply {
@@ -50,6 +60,10 @@ class PreviewPdfFragment : Fragment(R.layout.preview_pdf_fragment) {
         val owner = viewLifecycleOwner
         file = requireArguments().getParcelableArgument(ARG_FILE, OCFile::class.java)!!
         recycler.contentDescription = file.fileName
+        bindReadingGestures(recycler)
+        if (savedInstanceState?.getBoolean(STATE_FULLSCREEN) == true) {
+            recycler.doOnAttach { hideReadingChrome() }
+        }
         owner.lifecycleScope.launch {
             try {
                 val path = file.storagePath ?: throw IOException("PDF has no local path")
@@ -64,6 +78,64 @@ class PreviewPdfFragment : Fragment(R.layout.preview_pdf_fragment) {
                 owner.lifecycle.withResumed { closeWithError(R.string.pdf_unreadable) }
             }
         }
+    }
+
+    private fun bindReadingGestures(recycler: RecyclerView) {
+        val lifecycle = viewLifecycleOwner.lifecycle
+        val taps = GestureDetector(recycler.context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                if (lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) hideReadingChrome()
+                return true
+            }
+
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                showReadingChrome()
+                return true
+            }
+        })
+        recycler.addOnItemTouchListener(object : RecyclerView.SimpleOnItemTouchListener() {
+            override fun onInterceptTouchEvent(rv: RecyclerView, event: MotionEvent): Boolean {
+                taps.onTouchEvent(event)
+                return false
+            }
+        })
+        recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(rv: RecyclerView, dx: Int, dy: Int) {
+                if (dy != 0) hideReadingChrome()
+            }
+        })
+    }
+
+    private fun hideReadingChrome() {
+        if (restoreReadingChrome != null) return
+        val host = activity as? FileDisplayActivity ?: return
+        val toolbar = host.findViewById<View>(R.id.toolbar_frame)
+        val controller = WindowCompat.getInsetsController(host.window, host.window.decorView)
+        val previousBehavior = controller.systemBarsBehavior
+        val previousVisibility = toolbar.visibility
+        restoreReadingChrome = {
+            toolbar.visibility = previousVisibility
+            controller.systemBarsBehavior = previousBehavior
+            controller.show(WindowInsetsCompat.Type.systemBars())
+        }
+        toolbar.isVisible = false
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+    }
+
+    private fun showReadingChrome() {
+        restoreReadingChrome?.invoke()
+        restoreReadingChrome = null
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean(STATE_FULLSCREEN, restoreReadingChrome != null)
+    }
+
+    override fun onDestroyView() {
+        showReadingChrome()
+        super.onDestroyView()
     }
 
     private suspend fun displayPages(
