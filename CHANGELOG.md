@@ -1,3 +1,7 @@
+## 35.1.0-zoom.9
+
+- DeviantArt titles with brackets, quotes or dashes (`[OPEN] ADOPT AUCTION — Comet "Aphel"`) are named correctly instead of keeping the timestamp.
+
 ## 35.1.0-zoom.8
 
 - Images shared from a DeviantArt page in Chrome are named `{author}-{title}` instead of a timestamp. The name stays editable before upload.
