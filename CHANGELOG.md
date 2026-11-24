@@ -1,3 +1,7 @@
+## 35.1.0-zoom.8
+
+- Images shared from a DeviantArt page in Chrome are named `{author}-{title}` instead of a timestamp. The name stays editable before upload.
+
 ## 35.1.0-zoom.7
 
 - Double-tapping a PDF restores the reading controls without losing your place.

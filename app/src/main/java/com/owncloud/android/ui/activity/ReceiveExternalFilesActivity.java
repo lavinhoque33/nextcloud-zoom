@@ -55,6 +55,7 @@ import com.nextcloud.client.jobs.upload.FileUploadWorker;
 import com.nextcloud.client.preferences.AppPreferences;
 import com.nextcloud.model.OCUploadLocalPathData;
 import com.nextcloud.ui.sort.SortOrderUi;
+import com.nextcloud.utils.DeviantArtShareName;
 import com.nextcloud.utils.SnackbarUtil;
 import com.nextcloud.utils.extensions.BundleExtensionsKt;
 import com.nextcloud.utils.extensions.FileExtensionsKt;
@@ -169,6 +170,11 @@ public class ReceiveExternalFilesActivity extends FileActivity
     private boolean mUploadFromTmpFile;
     private String mSubjectText;
     private String mExtraText;
+
+    /** Page a single image was shared from, when that page is a DeviantArt deviation. */
+    @Nullable private String mDeviantArtPageUrl;
+    @Nullable private String mDeviantArtFileName;
+    private boolean mDeviantArtLookupStarted;
 
     private final static Charset FILENAME_ENCODING = Charset.forName("UTF-8");
 
@@ -878,9 +884,10 @@ public class ReceiveExternalFilesActivity extends FileActivity
             return;
         }
         final String userProvidedFileName = Objects.requireNonNullElse(binding.userInput.getText(), "").toString();
+        final String defaultFileName = mDeviantArtFileName != null ? mDeviantArtFileName : fileName;
 
         binding.userInput.setVisibility(View.VISIBLE);
-        binding.userInput.setText(userProvidedFileName.isEmpty() ? fileName : userProvidedFileName);
+        binding.userInput.setText(userProvidedFileName.isEmpty() ? defaultFileName : userProvidedFileName);
         final var optionalCapabilities = getCapabilities();
         if (optionalCapabilities.isPresent()) {
             final var validator = getFileNameTextWatcher(optionalCapabilities.get(), fileName);
@@ -903,6 +910,36 @@ public class ReceiveExternalFilesActivity extends FileActivity
                     }
                 });
             }
+        });
+
+        lookUpDeviantArtFileName(fileName);
+    }
+
+    /**
+     * Replaces the shared file's temporary name with {author}-{title} once DeviantArt answers, unless the user has
+     * already edited the name.
+     */
+    private void lookUpDeviantArtFileName(String sharedFileName) {
+        if (mDeviantArtPageUrl == null || mDeviantArtLookupStarted) {
+            return;
+        }
+        mDeviantArtLookupStarted = true;
+        final String pageUrl = mDeviantArtPageUrl;
+        executorService.execute(() -> {
+            final String resolvedName = DeviantArtShareName.resolveFileName(pageUrl, sharedFileName);
+            if (resolvedName == null) {
+                return;
+            }
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) {
+                    return;
+                }
+                mDeviantArtFileName = resolvedName;
+                final String currentName = Objects.requireNonNullElse(binding.userInput.getText(), "").toString();
+                if (currentName.isEmpty() || currentName.equals(sharedFileName)) {
+                    binding.userInput.setText(resolvedName);
+                }
+            });
         });
     }
 
@@ -991,6 +1028,7 @@ public class ReceiveExternalFilesActivity extends FileActivity
         if (intent.hasExtra(Intent.EXTRA_STREAM) && Intent.ACTION_SEND.equals(intent.getAction())) {
             mStreamsToUpload = new ArrayList<>();
             mStreamsToUpload.add(IntentExtensionsKt.getParcelableArgument(intent, Intent.EXTRA_STREAM, Parcelable.class));
+            mDeviantArtPageUrl = DeviantArtShareName.findPageUrl(intent.getStringExtra(Intent.EXTRA_TEXT));
         } else if (intent.hasExtra(Intent.EXTRA_STREAM) && Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction())) {
             mStreamsToUpload = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
         } else if (intent.hasExtra(Intent.EXTRA_TEXT) && Intent.ACTION_SEND.equals(intent.getAction())) {

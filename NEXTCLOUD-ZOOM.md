@@ -36,6 +36,16 @@ independently, even when a document mixes page sizes. To use another reader, cho
 Tap once or scroll to hide the filename and Android's system bars. Double-tap the page to bring them back.
 You can also swipe from the screen edge for system navigation. Back restores the file list's toolbar and bottom tabs.
 
+## Naming DeviantArt shares
+
+Chrome shares an image as a temporary file named after the current time (`17954983418615250855942575203020.jpeg`)
+and passes the page it came from as text. When that page is a DeviantArt deviation, the upload name field is
+filled with `{author}-{title}.{ext}` (for example `dyrk-wyst-Sunrise River.jpg`). Author and title come from
+DeviantArt's public oEmbed endpoint. If that request fails, they come from the page URL (`/<author>/art/<Title-Slug>-<id>`).
+The name can still be edited before tapping Upload, and a name you already edited is never replaced.
+
+Code: `DeviantArtShareName.kt` and `ReceiveExternalFilesActivity.lookUpDeviantArtFileName`.
+
 ## Build and sign
 
 ```sh
